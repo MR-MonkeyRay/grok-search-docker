@@ -1,0 +1,4 @@
+[submodule "GrokSearch"]
+	path = GrokSearch
+	url = https://github.com/GuDaStudio/GrokSearch.git
+	branch = main

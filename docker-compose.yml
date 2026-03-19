@@ -1,0 +1,33 @@
+services:
+  grok-search:
+    image: ${GROK_SEARCH_IMAGE:?请先在 .env 或环境变量中设置 GROK_SEARCH_IMAGE，例如 ghcr.io/owner/repo:latest}
+    init: true
+    stdin_open: true
+    tty: false
+    environment:
+      GROK_API_URL: ${GROK_API_URL:-}
+      GROK_API_KEY: ${GROK_API_KEY:-}
+      GROK_MODEL: ${GROK_MODEL:-grok-4-fast}
+      TAVILY_ENABLED: ${TAVILY_ENABLED:-true}
+      TAVILY_API_URL: ${TAVILY_API_URL:-https://api.tavily.com}
+      TAVILY_API_KEY: ${TAVILY_API_KEY:-}
+      FIRECRAWL_API_URL: ${FIRECRAWL_API_URL:-https://api.firecrawl.dev/v2}
+      FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY:-}
+      GROK_DEBUG: ${GROK_DEBUG:-false}
+      GROK_LOG_LEVEL: ${GROK_LOG_LEVEL:-INFO}
+      GROK_LOG_DIR: ${GROK_LOG_DIR:-logs}
+      GROK_RETRY_MAX_ATTEMPTS: ${GROK_RETRY_MAX_ATTEMPTS:-3}
+      GROK_RETRY_MULTIPLIER: ${GROK_RETRY_MULTIPLIER:-1}
+      GROK_RETRY_MAX_WAIT: ${GROK_RETRY_MAX_WAIT:-10}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - grok-search-config:/home/app/.config/grok-search
+
+volumes:
+  grok-search-config:

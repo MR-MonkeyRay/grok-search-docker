@@ -1,0 +1,34 @@
+.git
+.gitignore
+.omx
+
+# Python cache / virtualenv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.venv
+venv
+
+# Local logs and env files
+logs
+*.log
+.env
+.env.*
+
+# Editor / OS noise
+.DS_Store
+.idea
+.vscode
+
+# Project-local VCS metadata inside the nested repo is not needed for image build
+GrokSearch/.git
+
+# GitHub workflows are not required inside image
+.github
+
+# tmp files
+docs/
