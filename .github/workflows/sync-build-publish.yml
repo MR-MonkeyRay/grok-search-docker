@@ -172,7 +172,59 @@ jobs:
         if: steps.publish.outputs.publish == 'true'
         run: |
           set -euo pipefail
-          docker run --rm --entrypoint /bin/sh local/grok-search-docker:smoke-${{ steps.submodule.outputs.after_sha }} -lc 'command -v grok-search >/dev/null && python -c "import grok_search.server"'
+          CONTAINER_NAME="grok-search-smoke-${{ github.run_id }}-${{ github.run_attempt }}"
+          cleanup() {
+            docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          docker run -d \
+            --name "$CONTAINER_NAME" \
+            -e FASTMCP_TRANSPORT=http \
+            -e FASTMCP_HOST=0.0.0.0 \
+            -e FASTMCP_PORT=8000 \
+            -e FASTMCP_PATH=/mcp \
+            -p 8000:8000 \
+            local/grok-search-docker:smoke-${{ steps.submodule.outputs.after_sha }}
+
+          for _ in $(seq 1 30); do
+            if docker exec "$CONTAINER_NAME" python /app/launcher/healthcheck.py; then
+              docker exec "$CONTAINER_NAME" /bin/sh -lc 'PATH=/opt/venv/bin:$PATH python - <<"PY"
+import anyio
+from fastmcp import Client
+
+
+async def main() -> None:
+    async with Client("http://127.0.0.1:8000/mcp") as client:
+        tools = await client.list_tools()
+        print(f"container_tool_count={len(tools)}")
+
+
+anyio.run(main)
+PY'
+              docker run --rm --network host \
+                --entrypoint /bin/sh \
+                local/grok-search-docker:smoke-${{ steps.submodule.outputs.after_sha }} \
+                -lc 'PATH=/opt/venv/bin:$PATH python - <<"PY"
+import anyio
+from fastmcp import Client
+
+
+async def main() -> None:
+    async with Client("http://127.0.0.1:8000/mcp") as client:
+        await client.ping()
+        print("host_http_ping_ok")
+
+
+anyio.run(main)
+PY'
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs "$CONTAINER_NAME"
+          exit 1
 
       - name: Commit submodule bump (before image push)
         if: steps.submodule.outputs.changed == 'true' && steps.publish.outputs.publish == 'true'
