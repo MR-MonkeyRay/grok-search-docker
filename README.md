@@ -42,7 +42,7 @@ cp .env.example .env
 至少需要准备以下变量：
 
 ```bash
-GROK_SEARCH_IMAGE=ghcr.io/<repository-owner>/<repo-name>:latest
+GROK_SEARCH_IMAGE=ghcr.io/mr-monkeyray/grok-search-docker:latest
 GROK_API_URL=https://your-api-endpoint.com/v1
 GROK_API_KEY=your-grok-api-key
 ```
@@ -94,7 +94,7 @@ docker run -d \
   --cap-drop ALL \
   -p 8000:8000 \
   -v grok-search-config:/home/app/.config/grok-search \
-  ghcr.io/<repository-owner>/<repo-name>:latest
+  ghcr.io/mr-monkeyray/grok-search-docker:latest
 ```
 
 这会以默认配置启动长驻 HTTP MCP 服务，并监听：
@@ -131,7 +131,7 @@ docker run --rm -i \
   --security-opt no-new-privileges:true \
   --cap-drop ALL \
   -v grok-search-config:/home/app/.config/grok-search \
-  ghcr.io/<repository-owner>/<repo-name>:latest
+  ghcr.io/mr-monkeyray/grok-search-docker:latest
 ```
 
 如需切换到 SSE：
@@ -147,7 +147,7 @@ docker run -d \
   --security-opt no-new-privileges:true \
   --cap-drop ALL \
   -v grok-search-config:/home/app/.config/grok-search \
-  ghcr.io/<repository-owner>/<repo-name>:latest
+  ghcr.io/mr-monkeyray/grok-search-docker:latest
 ```
 
 ## 5. 健康检查与快速验证
@@ -306,7 +306,7 @@ claude mcp add --transport http grok-search http://localhost:8000/mcp
 请先在 `.env` 中设置：
 
 ```bash
-GROK_SEARCH_IMAGE=ghcr.io/<repository-owner>/<repo-name>:latest
+GROK_SEARCH_IMAGE=ghcr.io/mr-monkeyray/grok-search-docker:latest
 ```
 
 ### healthcheck 异常

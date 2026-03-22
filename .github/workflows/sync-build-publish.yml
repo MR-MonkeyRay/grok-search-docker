@@ -190,34 +190,34 @@ jobs:
           for _ in $(seq 1 30); do
             if docker exec "$CONTAINER_NAME" python /app/launcher/healthcheck.py; then
               docker exec "$CONTAINER_NAME" /bin/sh -lc 'PATH=/opt/venv/bin:$PATH python - <<"PY"
-import anyio
-from fastmcp import Client
+          import anyio
+          from fastmcp import Client
 
 
-async def main() -> None:
-    async with Client("http://127.0.0.1:8000/mcp") as client:
-        tools = await client.list_tools()
-        print(f"container_tool_count={len(tools)}")
+          async def main() -> None:
+              async with Client("http://127.0.0.1:8000/mcp") as client:
+                  tools = await client.list_tools()
+                  print(f"container_tool_count={len(tools)}")
 
 
-anyio.run(main)
-PY'
+          anyio.run(main)
+          PY'
               docker run --rm --network host \
                 --entrypoint /bin/sh \
                 local/grok-search-docker:smoke-${{ steps.submodule.outputs.after_sha }} \
-                -lc 'PATH=/opt/venv/bin:$PATH python - <<"PY"
-import anyio
-from fastmcp import Client
+              -lc 'PATH=/opt/venv/bin:$PATH python - <<"PY"
+          import anyio
+          from fastmcp import Client
 
 
-async def main() -> None:
-    async with Client("http://127.0.0.1:8000/mcp") as client:
-        await client.ping()
-        print("host_http_ping_ok")
+          async def main() -> None:
+              async with Client("http://127.0.0.1:8000/mcp") as client:
+                  await client.ping()
+                  print("host_http_ping_ok")
 
 
-anyio.run(main)
-PY'
+          anyio.run(main)
+          PY'
               exit 0
             fi
             sleep 2

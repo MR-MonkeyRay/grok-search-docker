@@ -1,6 +1,6 @@
 services:
   grok-search:
-    image: ${GROK_SEARCH_IMAGE:?请先在 .env 或环境变量中设置 GROK_SEARCH_IMAGE，例如 ghcr.io/owner/repo:latest}
+    image: ${GROK_SEARCH_IMAGE:-ghcr.io/mr-monkeyray/grok-search-docker:latest}
     init: true
     restart: unless-stopped
     ports:
