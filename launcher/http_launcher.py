@@ -7,12 +7,46 @@ from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-GROKSEARCH_SRC = REPO_ROOT / "GrokSearch" / "src"
-if GROKSEARCH_SRC.exists() and str(GROKSEARCH_SRC) not in sys.path:
-    sys.path.insert(0, str(GROKSEARCH_SRC))
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_GROKSEARCH_SRC = _REPO_ROOT / "GrokSearch" / "src"
+if _GROKSEARCH_SRC.exists() and str(_GROKSEARCH_SRC) not in sys.path:
+    sys.path.insert(0, str(_GROKSEARCH_SRC))
 
 from grok_search.server import mcp
+
+
+def _get_sanitizer_funcs():
+    try:
+        from launcher.think_sanitizer import sanitize_value, should_sanitize_tool
+        return sanitize_value, should_sanitize_tool
+    except ImportError:
+        src = Path(__file__).resolve().parent
+        if str(src) not in sys.path:
+            sys.path.insert(0, str(src))
+        from think_sanitizer import sanitize_value, should_sanitize_tool
+        return sanitize_value, should_sanitize_tool
+
+
+_MCP_PATCHED = False
+
+
+def _install_call_tool_patch() -> None:
+    global _MCP_PATCHED
+    if _MCP_PATCHED:
+        return
+
+    sanitize_value, should_sanitize_tool = _get_sanitizer_funcs()
+    original_call_tool = mcp.call_tool
+
+    async def _wrapped_call_tool(*args, **kwargs) -> Any:
+        result = await original_call_tool(*args, **kwargs)
+        name = args[0] if args else kwargs.get("name")
+        if name and should_sanitize_tool(name):
+            return sanitize_value(result)
+        return result
+
+    mcp.call_tool = _wrapped_call_tool
+    _MCP_PATCHED = True
 
 
 VALID_TRANSPORTS = {"http", "sse", "stdio"}
@@ -94,6 +128,7 @@ def _resolve_transport(requested: str) -> str:
 
 
 def _run_mcp(**kwargs: Any) -> None:
+    _install_call_tool_patch()
     supported_kwargs = _supported_kwargs()
     if supported_kwargs:
         kwargs = {key: value for key, value in kwargs.items() if key in supported_kwargs}
