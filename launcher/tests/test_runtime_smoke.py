@@ -113,10 +113,49 @@ def test_patch_path() -> None:
     http_launcher._MCP_PATCHED = original_patched
 
 
+def test_transport_normalization() -> None:
+    import launcher.http_launcher as http_launcher
+
+    assert http_launcher._normalize_transport(None) == "streamable-http"
+    assert http_launcher._normalize_transport("streamable-http") == "streamable-http"
+    assert http_launcher._normalize_transport("sse") == "sse"
+
+
+def test_transport_normalization_rejects_legacy_modes() -> None:
+    import launcher.http_launcher as http_launcher
+
+    rejected = ["http", "stdio", "ws"]
+    for value in rejected:
+        try:
+            http_launcher._normalize_transport(value)
+        except ValueError as exc:
+            assert "Expected one of" in str(exc), f"unexpected error: {exc}"
+        else:
+            raise AssertionError(f"expected ValueError for {value!r}")
+
+
+def test_healthcheck_uses_streamable_http_by_default() -> None:
+    import launcher.healthcheck as healthcheck
+
+    original = healthcheck.os.environ.get("FASTMCP_TRANSPORT")
+    try:
+        healthcheck.os.environ.pop("FASTMCP_TRANSPORT", None)
+        transport = (healthcheck.os.getenv("FASTMCP_TRANSPORT", "streamable-http").strip().lower() or "streamable-http")
+        assert transport == "streamable-http"
+    finally:
+        if original is None:
+            healthcheck.os.environ.pop("FASTMCP_TRANSPORT", None)
+        else:
+            healthcheck.os.environ["FASTMCP_TRANSPORT"] = original
+
+
 if __name__ == "__main__":
     test_strip_think_segments()
     test_should_sanitize_tool()
     test_sanitize_value_nested()
     test_sanitize_value_object()
     test_patch_path()
+    test_transport_normalization()
+    test_transport_normalization_rejects_legacy_modes()
+    test_healthcheck_uses_streamable_http_by_default()
     print("all_smoke_tests_ok")

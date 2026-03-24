@@ -18,7 +18,7 @@ async def list_tools(url: str) -> None:
 async def ping(url: str) -> None:
     async with Client(url) as client:
         await client.ping()
-        print("host_http_ping_ok")
+        print("client_ping_ok")
 
 
 if __name__ == "__main__":

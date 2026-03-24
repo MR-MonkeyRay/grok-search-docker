@@ -49,7 +49,7 @@ def _install_call_tool_patch() -> None:
     _MCP_PATCHED = True
 
 
-VALID_TRANSPORTS = {"http", "sse", "stdio"}
+VALID_TRANSPORTS = {"streamable-http", "sse"}
 
 
 def _parse_bool(value: str | None, *, default: bool) -> bool:
@@ -69,7 +69,7 @@ def _parse_bool(value: str | None, *, default: bool) -> bool:
 
 
 def _normalize_transport(value: str | None) -> str:
-    transport = (value or "http").strip().lower()
+    transport = (value or "streamable-http").strip().lower()
     if transport not in VALID_TRANSPORTS:
         valid = ", ".join(sorted(VALID_TRANSPORTS))
         raise ValueError(
@@ -115,18 +115,6 @@ def _supported_kwargs() -> set[str]:
         return set()
 
 
-def _resolve_transport(requested: str) -> str:
-    try:
-        annotation = inspect.signature(mcp.run).parameters["transport"].annotation
-    except (KeyError, TypeError, ValueError):
-        return requested
-
-    annotation_text = str(annotation)
-    if requested == "http" and "streamable-http" in annotation_text and '"http"' not in annotation_text:
-        return "streamable-http"
-    return requested
-
-
 def _run_mcp(**kwargs: Any) -> None:
     _install_call_tool_patch()
     supported_kwargs = _supported_kwargs()
@@ -137,27 +125,22 @@ def _run_mcp(**kwargs: Any) -> None:
 
 def main() -> int:
     try:
-        transport = _normalize_transport(os.getenv("FASTMCP_TRANSPORT", "http"))
+        transport = _normalize_transport(os.getenv("FASTMCP_TRANSPORT", "streamable-http"))
         show_banner = _parse_bool(os.getenv("FASTMCP_SHOW_BANNER"), default=False)
-
-        if transport == "stdio":
-            _run_mcp(transport="stdio", show_banner=show_banner)
-            return 0
 
         host = os.getenv("FASTMCP_HOST", "0.0.0.0")
         port = _parse_port(os.getenv("FASTMCP_PORT", "8000"))
         _apply_setting("host", host)
         _apply_setting("port", port)
 
-        resolved_transport = _resolve_transport(transport)
         run_kwargs: dict[str, Any] = {
-            "transport": resolved_transport,
+            "transport": transport,
             "host": host,
             "port": port,
             "show_banner": show_banner,
         }
 
-        if transport == "http":
+        if transport == "streamable-http":
             path = _normalize_path(os.getenv("FASTMCP_PATH"))
             _apply_setting("streamable_http_path", path)
             run_kwargs["path"] = path

@@ -180,7 +180,7 @@ jobs:
 
           docker run -d \
             --name "$CONTAINER_NAME" \
-            -e FASTMCP_TRANSPORT=http \
+            -e FASTMCP_TRANSPORT=streamable-http \
             -e FASTMCP_HOST=0.0.0.0 \
             -e FASTMCP_PORT=8000 \
             -e FASTMCP_PATH=/mcp \
