@@ -22,8 +22,94 @@ def test_strip_think_segments() -> None:
 
 def test_should_sanitize_tool() -> None:
     assert should_sanitize_tool("web_search") == True, "web_search in whitelist"
+    assert should_sanitize_tool("get_config_info") == True, "get_config_info in whitelist"
     assert should_sanitize_tool("web_fetch") == False, "web_fetch not in whitelist"
     assert should_sanitize_tool("other") == False, "unknown tool"
+
+
+def test_redact_config_info_text() -> None:
+    from launcher.think_sanitizer import redact_config_info_text
+
+    d = {"GROK_API_URL": "http://secret.local", "other": "value"}
+    res = redact_config_info_text(d)
+    assert res["GROK_API_URL"] == "[REDACTED]", "GROK_API_URL redacted"
+    assert res["other"] == "value", "other fields preserved"
+
+    nested = {"config": {"GROK_API_URL": "http://secret.local"}}
+    res = redact_config_info_text(nested)
+    assert res["config"]["GROK_API_URL"] == "[REDACTED]", "nested GROK_API_URL redacted"
+
+    tavily = {"TAVILY_API_URL": "http://tavily.local"}
+    res = redact_config_info_text(tavily)
+    assert res["TAVILY_API_URL"] == "[REDACTED]", "TAVILY_API_URL redacted"
+
+    firecrawl = {"FIRECRAWL_API_URL": "http://firecrawl.local"}
+    res = redact_config_info_text(firecrawl)
+    assert res["FIRECRAWL_API_URL"] == "[REDACTED]", "FIRECRAWL_API_URL redacted"
+
+
+def test_redact_config_info_scrubs_urls_in_strings() -> None:
+    from launcher.think_sanitizer import redact_config_info_text
+
+    text = "Check https://example.com/api"
+    res = redact_config_info_text(text)
+    assert "[URL]" in res, "URL in string replaced"
+    assert "example.com" not in res, "URL content removed"
+
+
+def test_sanitize_tool_result() -> None:
+    from launcher.think_sanitizer import sanitize_tool_result
+
+    config_data = {"GROK_API_URL": "http://secret.local"}
+    res = sanitize_tool_result("get_config_info", config_data)
+    assert res["GROK_API_URL"] == "[REDACTED]", "get_config_info uses redact_config_info_text"
+
+    search_data = {"content": "<think>think</think>visible"}
+    res = sanitize_tool_result("web_search", search_data)
+    assert res["content"] == "visible", "web_search uses sanitize_value"
+
+    res = sanitize_tool_result("unknown_tool", {"key": "value"})
+    assert res == {"key": "value"}, "unknown_tool unchanged"
+
+
+def test_sanitize_tool_result_with_object() -> None:
+    """Test sanitize_tool_result handles object with .text containing JSON."""
+    import json
+    from launcher.think_sanitizer import sanitize_tool_result
+
+    class FakeTextContent:
+        def __init__(self, text: str) -> None:
+            self.text = text
+
+    payload = json.dumps({
+        "GROK_API_URL": "https://api.x.ai/v1",
+        "GROK_MODEL": "grok-4-fast",
+        "GROK_API_KEY": "xai-****key",
+        "connection_test": {
+            "status": "failed",
+            "message": "failed to reach https://api.x.ai/v1/models"
+        }
+    })
+
+    fake_obj = FakeTextContent(payload)
+    result = sanitize_tool_result("get_config_info", fake_obj)
+
+    result_text = result.text
+    parsed = json.loads(result_text)
+
+    assert parsed["GROK_API_URL"] == "[REDACTED]", "GROK_API_URL redacted in JSON"
+    assert "api.x.ai" not in parsed["connection_test"]["message"], "URL in message scrubbed"
+    assert parsed["GROK_MODEL"] == "grok-4-fast", "non-URL fields preserved"
+
+
+def test_scrub_urls() -> None:
+    from launcher.think_sanitizer import _scrub_urls
+
+    text = "Check out https://example.com/api and http://test.local/path"
+    res = _scrub_urls(text)
+    assert "[URL]" in res, "URLs replaced with [URL]"
+    assert "example.com" not in res, "URL content removed"
+    assert "test.local" not in res, "URL content removed"
 
 
 def test_sanitize_value_nested() -> None:
@@ -152,6 +238,11 @@ def test_healthcheck_uses_streamable_http_by_default() -> None:
 if __name__ == "__main__":
     test_strip_think_segments()
     test_should_sanitize_tool()
+    test_redact_config_info_text()
+    test_redact_config_info_scrubs_urls_in_strings()
+    test_sanitize_tool_result()
+    test_sanitize_tool_result_with_object()
+    test_scrub_urls()
     test_sanitize_value_nested()
     test_sanitize_value_object()
     test_patch_path()

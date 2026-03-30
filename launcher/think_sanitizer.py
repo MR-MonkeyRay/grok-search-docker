@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -82,4 +83,76 @@ def sanitize_value(value: Any) -> Any:
 
 
 def should_sanitize_tool(tool_name: str) -> bool:
-    return tool_name == "web_search"
+    return tool_name in ("web_search", "get_config_info")
+
+
+def redact_config_info_text(value: Any) -> Any:
+    """Redact sensitive fields like GROK_API_URL in config info output."""
+    if isinstance(value, dict):
+        result = {}
+        for k, v in value.items():
+            if isinstance(k, str) and k.endswith("_API_URL"):
+                result[k] = "[REDACTED]"
+            else:
+                result[k] = redact_config_info_text(v)
+        return result
+    if isinstance(value, list):
+        return [redact_config_info_text(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(redact_config_info_text(item) for item in value)
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            return json.dumps(redact_config_info_text(parsed), ensure_ascii=False, indent=2)
+        except (TypeError, json.JSONDecodeError):
+            return _scrub_urls(value)
+    if hasattr(value, "__dict__"):
+        target_fields = ("text", "content", "structured_content", "data")
+        updates = {}
+        for field in target_fields:
+            if hasattr(value, field):
+                raw = getattr(value, field)
+                sanitized = redact_config_info_text(raw)
+                updates[field] = sanitized
+        if updates:
+            try:
+                if hasattr(value, "model_copy"):
+                    return value.model_copy(update=updates)
+            except Exception:
+                pass
+            try:
+                import copy
+                new_obj = copy.copy(value)
+                for k, v in updates.items():
+                    setattr(new_obj, k, v)
+                return new_obj
+            except Exception:
+                pass
+            try:
+                new_obj = object.__new__(type(value))
+                new_obj.__dict__.update(value.__dict__)
+                for k, v in updates.items():
+                    setattr(new_obj, k, v)
+                return new_obj
+            except Exception:
+                pass
+    return value
+
+
+_URL_PATTERN = re.compile(r"https?://[^\s<>\"'\]]+")
+
+
+def _scrub_urls(text: str) -> str:
+    """Scrub URLs from text as a fallback sanitization measure."""
+    if not isinstance(text, str):
+        return text
+    return _URL_PATTERN.sub("[URL]", text)
+
+
+def sanitize_tool_result(tool_name: str, value: Any) -> Any:
+    """Apply tool-specific sanitization to MCP tool results."""
+    if tool_name == "get_config_info":
+        return redact_config_info_text(value)
+    if tool_name == "web_search":
+        return sanitize_value(value)
+    return value

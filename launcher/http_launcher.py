@@ -17,14 +17,14 @@ from grok_search.server import mcp
 
 def _get_sanitizer_funcs():
     try:
-        from launcher.think_sanitizer import sanitize_value, should_sanitize_tool
-        return sanitize_value, should_sanitize_tool
+        from launcher.think_sanitizer import sanitize_tool_result, should_sanitize_tool
+        return sanitize_tool_result, should_sanitize_tool
     except ImportError:
         src = Path(__file__).resolve().parent
         if str(src) not in sys.path:
             sys.path.insert(0, str(src))
-        from think_sanitizer import sanitize_value, should_sanitize_tool
-        return sanitize_value, should_sanitize_tool
+        from think_sanitizer import sanitize_tool_result, should_sanitize_tool
+        return sanitize_tool_result, should_sanitize_tool
 
 
 _MCP_PATCHED = False
@@ -35,14 +35,14 @@ def _install_call_tool_patch() -> None:
     if _MCP_PATCHED:
         return
 
-    sanitize_value, should_sanitize_tool = _get_sanitizer_funcs()
+    sanitize_tool_result, should_sanitize_tool = _get_sanitizer_funcs()
     original_call_tool = mcp.call_tool
 
     async def _wrapped_call_tool(*args, **kwargs) -> Any:
         result = await original_call_tool(*args, **kwargs)
         name = args[0] if args else kwargs.get("name")
         if name and should_sanitize_tool(name):
-            return sanitize_value(result)
+            return sanitize_tool_result(name, result)
         return result
 
     mcp.call_tool = _wrapped_call_tool
